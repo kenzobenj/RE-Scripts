@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <!-- Target Windows x64 native binary -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Enable Native AOT -->
+    <PublishAot>true</PublishAot>
+
+    <!-- Produce a single-file native exe (optional; remove if debugging issues) -->
+    <PublishSingleFile>true</PublishSingleFile>
+
+    <!-- Self-contained is required for Native AOT -->
+    <SelfContained>true</SelfContained>
+
+    <!-- Trimming/linking mode (Native AOT performs aggressive linking). -->
+    <TrimMode>link</TrimMode>
+
+    <!-- Optional: reduce size for single-file; may increase breakage for reflection -->
+    <StripSymbols>true</StripSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="dnlib" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>

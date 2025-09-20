@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using System.Text.Json;
+using System.Diagnostics;
 
 class Program {
     static void Main(string[] args) {
@@ -24,7 +25,7 @@ class Program {
                 }
             }			
         }
-//		Console.WriteLine($"Found {fieldData.Count} fields with RVA data.");
+		Debug.WriteLine($"Found {fieldData.Count} fields with RVA data.");
 		foreach (var type in mod.GetTypes()) {			
 			foreach (var method in type.Methods)
 				if(method.HasBody) {									
@@ -52,7 +53,7 @@ class Program {
                                 continue;
                             }
                             int strLen = (int)instrs[start - 2].Operand;
-                            var xorCount = 0;
+                            //var xorCount = 0;
                             byte? fieldVal = null;
 
                             // Emulate forward XOR sequence
@@ -63,7 +64,7 @@ class Program {
 
                                 if (cInstr.OpCode == OpCodes.Ldsflda || cInstr.OpCode == OpCodes.Ldsfld) {
                                     if (fieldVal != null) {
-                                        Console.WriteLine($"Uh oh. {method.FullName} is XORing two HasFieldRVA values, I did not prepare for this.");
+                                        Debug.WriteLine($"Uh oh. {method.FullName} is XORing two HasFieldRVA values, I did not prepare for this.");
                                         j += 1;
                                         break;
                                     }
@@ -74,25 +75,36 @@ class Program {
                                         if (j - 1 >= 0 && instrs[j - 1].OpCode == OpCodes.Ldc_I4) {
                                             index = (int)instrs[j - 1].Operand;                              
                                         } else {
-                                            Console.WriteLine($"Uh oh. {method.FullName} didn't find index before {cInstr.OpCode} instruction.");
+                                            Debug.WriteLine($"Uh oh. {method.FullName} didn't find index before {cInstr.OpCode} instruction.");
                                             j += 1;
                                             break;
                                         }                                                  
                                         fieldVal = fieldData[(FieldDef)f][index];
-                                        j += 1;
-                                        //chars.Add((char)(b ^ key));                                                                                
+                                        j += 1;                                        
                                     } else {
-                                        //Console.WriteLine($"Uh oh. {method.FullName} is referencing a field I did not account for: {((FieldDef)f).Name}");
+                                        Debug.WriteLine($"Uh oh. {method.FullName} is referencing a field I did not account for: {((FieldDef)f).Name}");
                                         j += 1;
                                         break;
                                     }
+                                } else if (cInstr.OpCode == OpCodes.Stelem_I2) {
+                                    var val = -1;
+                                    if (j - 1 >= 0 && instrs[j - 1].OpCode == OpCodes.Ldc_I4_S) {
+                                        val = (sbyte)instrs[j - 1].Operand;
+                                    } else {
+                                        Debug.WriteLine($"Uh oh. {method.FullName} did not find stelem argument.");
+                                        j += 1;
+                                        break;
+                                    }
+                                    chars.Add((char)val);
+                                    fieldVal = null;
+                                    j += 1;                                
                                 } else if (cInstr.OpCode == OpCodes.Xor) {
-                                    xorCount += 1;
+                                    //xorCount += 1;
                                     int xorVal1 = -1;
                                     if (j - 1 >= 0 && instrs[j - 1].OpCode == OpCodes.Ldc_I4) {
                                         xorVal1 = (int)instrs[j - 1].Operand;
                                     } else {
-                                        Console.WriteLine($"Uh oh. {method.FullName} did not find first XOR argument.");
+                                        Debug.WriteLine($"Uh oh. {method.FullName} did not find first XOR argument.");
                                         j += 1;
                                         break;
                                     }
@@ -103,15 +115,15 @@ class Program {
                                         if (j - 2 >= 0 && instrs[j - 2].OpCode == OpCodes.Ldc_I4) {
                                             xorVal2 = (int)instrs[j - 2].Operand;
                                         } else {
-                                            Console.WriteLine($"Uh oh. {method.FullName} did not find second XOR argument.");
+                                            Debug.WriteLine($"Uh oh. {method.FullName} did not find second XOR argument.");
                                             j += 1;
                                             break;
                                         } 
                                         chars.Add((char)(xorVal2 ^ xorVal1));
                                     }
                                     fieldVal = null;
-                                    j += 1;
-                                    if (xorCount == strLen) {
+                                    j += 2; //skipping the stelem after the xor
+                                    if (chars.Count == strLen) {
                                         break;
                                     }
                                 } else {
@@ -126,7 +138,7 @@ class Program {
                                 if (!results.ContainsKey(methodKey))
                                     results[methodKey] = new List<string>();
                                 results[methodKey].Add(s);
-                                //Console.WriteLine($"[{method.DeclaringType.FullName}.{method.Name}] Decrypted string: {s}");
+                                //Debug.WriteLine($"[{method.DeclaringType.FullName}.{method.Name}] Decrypted string: {s}");
                             }
                             // Continue from end of block
                             fieldVal = null;                            
